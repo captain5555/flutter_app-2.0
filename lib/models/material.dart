@@ -10,10 +10,21 @@ class Material {
   final int fileSize;
   final String filePath;
   final String? thumbnailPath;
+  final String? thumbnailUrl;
+  final String? fileUrl;
   final bool isDeleted;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final DateTime? deletedAt;
+  final DateTime? usedAt;
+
+  static bool _parseBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is int) return value == 1;
+    if (value is String) return value == '1' || value.toLowerCase() == 'true';
+    return false;
+  }
 
   Material({
     required this.id,
@@ -27,10 +38,13 @@ class Material {
     required this.fileSize,
     required this.filePath,
     this.thumbnailPath,
+    this.thumbnailUrl,
+    this.fileUrl,
     this.isDeleted = false,
     this.createdAt,
     this.updatedAt,
     this.deletedAt,
+    this.usedAt,
   });
 
   String get displayTitle => title ?? fileName;
@@ -43,6 +57,38 @@ class Material {
     if (fileSize < 1024 * 1024) return '${(fileSize / 1024).toStringAsFixed(1)} KB';
     if (fileSize < 1024 * 1024 * 1024) return '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(fileSize / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  String get usageTagLabel {
+    switch (usageTag) {
+      case 'unused':
+        return '未使用';
+      case 'used':
+        return '已使用';
+      case 'viral_candidate':
+        return '爆款备选';
+      default:
+        return usageTag;
+    }
+  }
+
+  String get viralTagLabel {
+    switch (viralTag) {
+      case 'not_viral':
+        return '非爆款';
+      case 'monitoring':
+        return '待观察';
+      case 'viral':
+        return '爆款';
+      default:
+        return viralTag;
+    }
+  }
+
+  String? get usedAtFormatted {
+    if (usedAt == null) return null;
+    return '${usedAt!.year}-${usedAt!.month.toString().padLeft(2, '0')}-${usedAt!.day.toString().padLeft(2, '0')} '
+        '${usedAt!.hour.toString().padLeft(2, '0')}:${usedAt!.minute.toString().padLeft(2, '0')}';
   }
 
   factory Material.fromJson(Map<String, dynamic> json) {
@@ -58,10 +104,13 @@ class Material {
       fileSize: json['file_size'] is int ? json['file_size'] : int.parse(json['file_size']?.toString() ?? '0'),
       filePath: json['file_path'] as String? ?? json['oss_key'] as String? ?? '',
       thumbnailPath: json['thumbnail_path'] as String?,
-      isDeleted: json['is_deleted'] as bool? ?? false,
-      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at']) : null,
-      updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at']) : null,
-      deletedAt: json['deleted_at'] != null ? DateTime.tryParse(json['deleted_at']) : null,
+      thumbnailUrl: json['thumbnail_url'] as String? ?? json['thumbnailUrl'] as String?,
+      fileUrl: json['file_url'] as String? ?? json['fileUrl'] as String?,
+      isDeleted: _parseBool(json['is_deleted']),
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+      updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'].toString()) : null,
+      deletedAt: json['deleted_at'] != null ? DateTime.tryParse(json['deleted_at'].toString()) : null,
+      usedAt: json['used_at'] != null ? DateTime.tryParse(json['used_at'].toString()) : null,
     );
   }
 
@@ -78,7 +127,10 @@ class Material {
       'file_size': fileSize,
       'file_path': filePath,
       'thumbnail_path': thumbnailPath,
+      'thumbnail_url': thumbnailUrl,
+      'file_url': fileUrl,
       'is_deleted': isDeleted,
+      'used_at': usedAt?.toIso8601String(),
     };
   }
 
@@ -94,10 +146,13 @@ class Material {
     int? fileSize,
     String? filePath,
     String? thumbnailPath,
+    String? thumbnailUrl,
+    String? fileUrl,
     bool? isDeleted,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
+    DateTime? usedAt,
   }) {
     return Material(
       id: id ?? this.id,
@@ -111,10 +166,13 @@ class Material {
       fileSize: fileSize ?? this.fileSize,
       filePath: filePath ?? this.filePath,
       thumbnailPath: thumbnailPath ?? this.thumbnailPath,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      fileUrl: fileUrl ?? this.fileUrl,
       isDeleted: isDeleted ?? this.isDeleted,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
+      usedAt: usedAt ?? this.usedAt,
     );
   }
 }

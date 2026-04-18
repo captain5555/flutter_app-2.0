@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -34,14 +35,18 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> login(String username, String password) async {
+    print('AuthProvider.login 被调用');
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
+      print('调用 AuthService.login...');
       _user = await _authService.login(username, password);
+      print('AuthService.login 成功，用户: ${_user?.username}');
       return true;
     } catch (e) {
+      print('AuthService.login 异常: $e');
       _error = e.toString();
       return false;
     } finally {
@@ -66,5 +71,16 @@ class AuthProvider with ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  Future<void> tryInitializeApi() async {
+    try {
+      final apiService = ApiService();
+      if (!apiService.isInitialized) {
+        await apiService.initialize();
+      }
+    } catch (e) {
+      print('Failed to initialize API: $e');
+    }
   }
 }

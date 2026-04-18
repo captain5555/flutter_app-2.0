@@ -28,4 +28,10 @@ class ApiConstants {
   static const String generateTitle = '/api/ai/generate-title';
   static const String generateDescription = '/api/ai/generate-description';
   static const String translate = '/api/ai/translate';
+
+  // Admin endpoints
+  static const String adminStats = '/api/admin/stats';
+  static const String adminLogs = '/api/admin/logs';
+  static const String adminBackup = '/api/admin/backup';
+  static const String adminBackups = '/api/admin/backups';
 }
