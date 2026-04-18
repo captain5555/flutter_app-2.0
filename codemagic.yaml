@@ -4,8 +4,8 @@ workflows:
     instance_type: mac_mini_m1
     max_build_duration: 60
     environment:
-      flutter: 3.19.0
-      xcode: 15.0
+      flutter: stable
+      xcode: latest
       cocoapods: default
     triggering:
       events:
@@ -36,7 +36,7 @@ workflows:
     instance_type: linux
     max_build_duration: 60
     environment:
-      flutter: 3.19.0
+      flutter: stable
     triggering:
       events:
         - push
