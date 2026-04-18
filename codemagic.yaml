@@ -2,7 +2,7 @@ workflows:
   ios-build:
     name: iOS Build
     instance_type: mac_mini_m1
-    max_build_duration: 60
+    max_build_duration: 90
     environment:
       flutter: stable
       xcode: latest
@@ -15,21 +15,52 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Clean and get dependencies
+      - name: List environment info
+        script: |
+          echo "=== Flutter version ==="
+          flutter --version
+          echo "=== Xcode version ==="
+          xcodebuild -version
+          echo "=== CocoaPods version ==="
+          pod --version
+      - name: Clean workspace
         script: |
           flutter clean
-          flutter pub get
-      - name: Build iOS
+          rm -rf ios/Pods
+          rm -rf ios/.symlinks
+          rm -f ios/Podfile.lock
+      - name: Get Flutter dependencies
         script: |
-          flutter build ios --release --no-codesign
+          flutter pub get
+      - name: Install CocoaPods
+        script: |
+          cd ios
+          pod deintegrate
+          pod install --repo-update
+      - name: Build iOS (verbose)
+        script: |
+          flutter build ios --release --no-codesign --verbose
+      - name: Verify build output
+        script: |
+          echo "=== Checking build output ==="
+          ls -la build/ios/
+          ls -la build/ios/iphoneos/ || true
       - name: Create IPA
         script: |
-          mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r build/ios/Runner.ipa Payload/
-          rm -rf Payload
+          if [ -d "build/ios/iphoneos/Runner.app" ]; then
+            mkdir -p Payload
+            cp -r build/ios/iphoneos/Runner.app Payload/
+            zip -r build/ios/Runner.ipa Payload/
+            rm -rf Payload
+            echo "=== IPA created successfully ==="
+            ls -lh build/ios/Runner.ipa
+          else
+            echo "Runner.app not found!"
+            exit 1
+          fi
     artifacts:
       - build/ios/Runner.ipa
+      - build/ios/iphoneos/Runner.app
 
   android-build:
     name: Android Build
