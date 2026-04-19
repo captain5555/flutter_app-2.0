@@ -22,6 +22,9 @@ workflows:
         script: |
           flutter clean
           rm -rf ios/Pods ios/Podfile.lock
+      - name: Backup iOS project
+        script: |
+          cp -r ios/Runner.xcodeproj ios/Runner.xcodeproj.bak
       - name: Get dependencies
         script: |
           flutter pub get
@@ -29,17 +32,14 @@ workflows:
         script: |
           cd ios
           pod install
-      - name: Build iOS (with git restore)
+      - name: Build iOS
         script: |
-          # First build - allow Flutter to upgrade project (will probably fail)
+          # First build - allow Flutter to upgrade project
           flutter build ios --release --no-codesign || true
-          # Restore the original iOS project files that Flutter may have modified
-          git checkout HEAD -- ios/Runner.xcodeproj/project.pbxproj || true
-          git checkout HEAD -- ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme || true
-          git checkout HEAD -- ios/Flutter/Debug.xcconfig || true
-          git checkout HEAD -- ios/Flutter/Release.xcconfig || true
-          git checkout HEAD -- ios/Flutter/Generated.xcconfig || true
-          # Second build - with original project files
+          # Restore original project
+          rm -rf ios/Runner.xcodeproj
+          mv ios/Runner.xcodeproj.bak ios/Runner.xcodeproj
+          # Build again with original project
           flutter build ios --release --no-codesign
       - name: Create IPA
         script: |
