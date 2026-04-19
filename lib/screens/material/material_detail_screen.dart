@@ -1,14 +1,21 @@
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:video_player/video_player.dart';
 import 'package:provider/provider.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:app_settings/app_settings.dart';
 import '../../models/material.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/material_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/ai_service.dart';
 import '../../constants/theme_constants.dart';
+import '../../l10n/app_localizations.dart';
 
 class MaterialDetailScreen extends StatefulWidget {
   final Material material;
@@ -38,27 +45,27 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
   final List<String> _usageTags = ['unused', 'used', 'viral_candidate'];
   final List<String> _viralTags = ['not_viral', 'monitoring', 'viral'];
 
-  String _getUsageTagLabel(String tag) {
+  String _getUsageTagLabel(String tag, AppLocalizations l10n) {
     switch (tag) {
       case 'unused':
-        return '未使用';
+        return l10n.unused;
       case 'used':
-        return '已使用';
+        return l10n.used;
       case 'viral_candidate':
-        return '爆款备选';
+        return l10n.viralCandidate;
       default:
         return tag;
     }
   }
 
-  String _getViralTagLabel(String tag) {
+  String _getViralTagLabel(String tag, AppLocalizations l10n) {
     switch (tag) {
       case 'not_viral':
-        return '非爆款';
+        return l10n.notViral;
       case 'monitoring':
-        return '待观察';
+        return l10n.monitoring;
       case 'viral':
-        return '爆款';
+        return l10n.viral;
       default:
         return tag;
     }
@@ -115,7 +122,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
     super.dispose();
   }
 
-  Future<void> _save() async {
+  Future<void> _save(AppLocalizations l10n) async {
     if (!_isEdited) return;
 
     setState(() => _isLoading = true);
@@ -139,11 +146,11 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
         showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('保存失败'),
+            title: Text(l10n.saveFailed),
             content: Text(e.toString()),
             actions: [
               CupertinoDialogAction(
-                child: const Text('确定'),
+                child: Text(l10n.ok),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -157,18 +164,18 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
     }
   }
 
-  Future<void> _takeScreenshot() async {
+  Future<void> _takeScreenshot(AppLocalizations l10n) async {
     // 在Web端，video_player插件不支持直接截图
     // 这里我们显示一个提示，告诉用户这个功能在Web端暂不可用
     if (mounted) {
       showCupertinoDialog(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
-          title: const Text('提示'),
-          content: const Text('视频截图功能在Web版本中暂不可用，请使用原生App版本'),
+          title: Text(l10n.noticeFeatureUnavailable),
+          content: Text(l10n.videoScreenshotWebUnavailable),
           actions: [
             CupertinoDialogAction(
-              child: const Text('确定'),
+              child: Text(l10n.ok),
               onPressed: () => Navigator.pop(ctx),
             ),
           ],
@@ -177,7 +184,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
     }
   }
 
-  Future<void> _generateTitle() async {
+  Future<void> _generateTitle(AppLocalizations l10n) async {
     setState(() => _isAiGenerating = true);
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -194,11 +201,11 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
         showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('生成失败'),
+            title: Text(l10n.generateFailed),
             content: Text(e.toString()),
             actions: [
               CupertinoDialogAction(
-                child: const Text('确定'),
+                child: Text(l10n.ok),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -212,7 +219,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
     }
   }
 
-  Future<void> _generateDescription() async {
+  Future<void> _generateDescription(AppLocalizations l10n) async {
     setState(() => _isAiGenerating = true);
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -229,11 +236,11 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
         showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('生成失败'),
+            title: Text(l10n.generateFailed),
             content: Text(e.toString()),
             actions: [
               CupertinoDialogAction(
-                child: const Text('确定'),
+                child: Text(l10n.ok),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -247,17 +254,17 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
     }
   }
 
-  void _showTranslateOptions({required bool isTitle}) {
+  void _showTranslateOptions({required bool isTitle, required AppLocalizations l10n}) {
     final text = isTitle ? _titleController.text.trim() : _descriptionController.text.trim();
     if (text.isEmpty) {
       showCupertinoDialog(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
-          title: const Text('提示'),
-          content: const Text('请先输入内容'),
+          title: Text(l10n.notice),
+          content: Text(l10n.pleaseEnterContent),
           actions: [
             CupertinoDialogAction(
-              child: const Text('确定'),
+              child: Text(l10n.ok),
               onPressed: () => Navigator.pop(ctx),
             ),
           ],
@@ -269,33 +276,33 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => CupertinoActionSheet(
-        title: const Text('选择翻译方向'),
+        title: Text(l10n.selectTranslationDirection),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
-              _translate(isTitle: isTitle, toEnglish: true);
+              _translate(isTitle: isTitle, toEnglish: true, l10n: l10n);
             },
-            child: const Text('中文 → 英文'),
+            child: Text(l10n.chineseToEnglish),
           ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
-              _translate(isTitle: isTitle, toEnglish: false);
+              _translate(isTitle: isTitle, toEnglish: false, l10n: l10n);
             },
-            child: const Text('英文 → 中文'),
+            child: Text(l10n.englishToChinese),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           isDefaultAction: true,
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('取消'),
+          child: Text(l10n.cancel),
         ),
       ),
     );
   }
 
-  Future<void> _translate({required bool isTitle, required bool toEnglish}) async {
+  Future<void> _translate({required bool isTitle, required bool toEnglish, required AppLocalizations l10n}) async {
     final text = isTitle ? _titleController.text.trim() : _descriptionController.text.trim();
     if (text.isEmpty) return;
 
@@ -324,11 +331,11 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
         showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('翻译失败'),
+            title: Text(l10n.translateFailed),
             content: Text(errorMsg),
             actions: [
               CupertinoDialogAction(
-                child: const Text('确定'),
+                child: Text(l10n.ok),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -342,38 +349,96 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
     }
   }
 
-  Future<void> _downloadVideo() async {
+  Future<void> _downloadMedia(AppLocalizations l10n) async {
     setState(() => _isLoading = true);
     try {
-      // 在Web端，我们直接打开下载链接
       final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
       final mediaUrl = _getMediaUrl(settingsProvider.baseUrl);
 
-      if (mediaUrl != null && mounted) {
-        showCupertinoDialog(
-          context: context,
-          builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('下载视频'),
-            content: const Text('请在新标签页中下载'),
-            actions: [
-              CupertinoDialogAction(
-                child: const Text('确定'),
-                onPressed: () => Navigator.pop(ctx),
-              ),
-            ],
-          ),
-        );
+      if (mediaUrl == null) {
+        throw Exception('Unable to get media link');
+      }
+
+      // Android需要存储权限
+      if (Platform.isAndroid) {
+        final status = await Permission.storage.request();
+        if (!status.isGranted) {
+          throw Exception('Storage permission is required to download, please enable it in settings');
+        }
+      }
+
+      // iOS权限由image_gallery_saver自动处理
+
+      // 下载文件
+      final dio = Dio();
+      final tempDir = await getTemporaryDirectory();
+      final savePath = '${tempDir.path}/${widget.material.fileName}';
+
+      await dio.download(
+        mediaUrl,
+        savePath,
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: true,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      // 保存到相册 - iOS权限由image_gallery_saver自动处理
+      final result = await ImageGallerySaver.saveFile(
+        savePath,
+        name: widget.material.fileName,
+      );
+
+      if (result['isSuccess'] == true) {
+        if (mounted) {
+          showCupertinoDialog(
+            context: context,
+            builder: (ctx) => CupertinoAlertDialog(
+              title: Text(widget.material.isVideo ? l10n.downloadSuccess : l10n.saveSuccess),
+              content: Text(widget.material.isVideo
+                  ? l10n.videoSavedToAlbum
+                  : l10n.imageSavedToAlbum),
+              actions: [
+                CupertinoDialogAction(
+                  child: Text(l10n.ok),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        throw Exception(result['errorMessage'] ?? l10n.saveToAlbumFailed);
+      }
+
+      // 清理临时文件
+      try {
+        final tempFile = File(savePath);
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      } catch (_) {
+        // 忽略清理错误
       }
     } catch (e) {
       if (mounted) {
         showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('下载失败'),
+            title: Text(l10n.downloadFailed),
             content: Text(e.toString()),
             actions: [
+              if (Platform.isIOS)
+                CupertinoDialogAction(
+                  child: Text(l10n.goToSettings),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    AppSettings.openAppSettings();
+                  },
+                ),
               CupertinoDialogAction(
-                child: const Text('确定'),
+                child: Text(l10n.ok),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -387,18 +452,18 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
     }
   }
 
-  Future<void> _copyToClipboard(String text) async {
+  Future<void> _copyToClipboard(String text, AppLocalizations l10n) async {
     if (text.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
       showCupertinoDialog(
         context: context,
         builder: (ctx) => CupertinoAlertDialog(
-          title: const Text('已复制'),
-          content: const Text('内容已复制到剪贴板'),
+          title: Text(l10n.copied),
+          content: Text(l10n.contentCopiedToClipboard),
           actions: [
             CupertinoDialogAction(
-              child: const Text('确定'),
+              child: Text(l10n.ok),
               onPressed: () => Navigator.pop(ctx),
             ),
           ],
@@ -436,248 +501,255 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final settingsProvider = context.watch<SettingsProvider>();
-    final mediaUrl = _getMediaUrl(settingsProvider.baseUrl);
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, child) {
+        final l10n = AppLocalizations(settingsProvider.locale);
+        final mediaUrl = _getMediaUrl(settingsProvider.baseUrl);
 
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(widget.material.displayTitle),
-        trailing: _isLoading
-            ? const CupertinoActivityIndicator()
-            : CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: _isEdited ? _save : null,
-                child: Text(
-                  '保存',
-                  style: TextStyle(
-                    color: _isEdited ? CupertinoTheme.of(context).primaryColor : CupertinoColors.inactiveGray,
+        return CupertinoPageScaffold(
+          navigationBar: CupertinoNavigationBar(
+            middle: Text(widget.material.displayTitle),
+            trailing: _isLoading
+                ? const CupertinoActivityIndicator()
+                : CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: _isEdited ? () => _save(l10n) : null,
+                    child: Text(
+                      l10n.save,
+                      style: TextStyle(
+                        color: _isEdited ? CupertinoTheme.of(context).primaryColor : CupertinoColors.inactiveGray,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-      ),
-      child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(ThemeConstants.spacingMd),
-          children: [
-            // Media Preview
-            if (mediaUrl != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(ThemeConstants.borderRadiusMd),
-                child: widget.material.isImage
-                    ? CachedNetworkImage(
-                        imageUrl: mediaUrl,
-                        fit: BoxFit.contain,
-                        placeholder: (context, url) => Container(
-                          height: 300,
-                          color: CupertinoColors.systemGrey5,
-                          child: const Center(child: CupertinoActivityIndicator()),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          height: 300,
-                          color: CupertinoColors.systemGrey5,
-                          child: const Center(
-                            child: Icon(
-                              CupertinoIcons.photo,
-                              size: 60,
-                              color: CupertinoColors.systemGrey3,
+          ),
+          child: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(ThemeConstants.spacingMd),
+              children: [
+                // Media Preview
+                if (mediaUrl != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(ThemeConstants.borderRadiusMd),
+                    child: widget.material.isImage
+                        ? CachedNetworkImage(
+                            imageUrl: mediaUrl,
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) => Container(
+                              height: 300,
+                              color: CupertinoColors.systemGrey5,
+                              child: const Center(child: CupertinoActivityIndicator()),
                             ),
-                          ),
-                        ),
-                      )
-                    : _isVideoError
-                        ? Container(
-                            height: 300,
-                            color: CupertinoColors.systemGrey5,
-                            child: const Center(
-                              child: Icon(
-                                CupertinoIcons.exclamationmark_triangle,
-                                size: 60,
-                                color: CupertinoColors.systemGrey3,
+                            errorWidget: (context, url, error) => Container(
+                              height: 300,
+                              color: CupertinoColors.systemGrey5,
+                              child: const Center(
+                                child: Icon(
+                                  CupertinoIcons.photo,
+                                  size: 60,
+                                  color: CupertinoColors.systemGrey3,
+                                ),
                               ),
                             ),
                           )
-                        : _isVideoInitialized
-                            ? Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  AspectRatio(
-                                    aspectRatio: _videoController!.value.aspectRatio,
-                                    child: VideoPlayer(_videoController!),
-                                  ),
-                                  GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        if (_videoController!.value.isPlaying) {
-                                          _videoController!.pause();
-                                        } else {
-                                          _videoController!.play();
-                                        }
-                                      });
-                                    },
-                                    child: Container(
-                                      color: CupertinoColors.black.withOpacity(0.3),
-                                      child: Icon(
-                                        _videoController!.value.isPlaying
-                                            ? CupertinoIcons.pause_circle_fill
-                                            : CupertinoIcons.play_circle_fill,
-                                        size: 60,
-                                        color: CupertinoColors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Container(
+                        : _isVideoError
+                            ? Container(
                                 height: 300,
                                 color: CupertinoColors.systemGrey5,
                                 child: const Center(
-                                  child: CupertinoActivityIndicator(),
+                                  child: Icon(
+                                    CupertinoIcons.exclamationmark_triangle,
+                                    size: 60,
+                                    color: CupertinoColors.systemGrey3,
+                                  ),
                                 ),
-                              ),
-              ),
-            // Screenshot button for videos
-            if (widget.material.isVideo && _isVideoInitialized)
-              Padding(
-                padding: const EdgeInsets.only(top: ThemeConstants.spacingMd),
-                child: CupertinoButton.filled(
-                  onPressed: _takeScreenshot,
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
+                              )
+                            : _isVideoInitialized
+                                ? Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      AspectRatio(
+                                        aspectRatio: _videoController!.value.aspectRatio,
+                                        child: VideoPlayer(_videoController!),
+                                      ),
+                                      GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            if (_videoController!.value.isPlaying) {
+                                              _videoController!.pause();
+                                            } else {
+                                              _videoController!.play();
+                                            }
+                                          });
+                                        },
+                                        child: Container(
+                                          color: CupertinoColors.black.withOpacity(0.3),
+                                          child: Icon(
+                                            _videoController!.value.isPlaying
+                                                ? CupertinoIcons.pause_circle_fill
+                                                : CupertinoIcons.play_circle_fill,
+                                            size: 60,
+                                            color: CupertinoColors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Container(
+                                    height: 300,
+                                    color: CupertinoColors.systemGrey5,
+                                    child: const Center(
+                                      child: CupertinoActivityIndicator(),
+                                    ),
+                                  ),
+                  ),
+                // Screenshot button for videos
+                if (widget.material.isVideo && _isVideoInitialized)
+                  Padding(
+                    padding: const EdgeInsets.only(top: ThemeConstants.spacingMd),
+                    child: CupertinoButton.filled(
+                      onPressed: () => _takeScreenshot(l10n),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(CupertinoIcons.camera, size: 18),
+                          const SizedBox(width: 8),
+                          Text(l10n.screenshot),
+                        ],
+                      ),
+                    ),
+                  ),
+                // Show screenshot if available
+                if (_currentScreenshot != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: ThemeConstants.spacingMd),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.screenshotSelected,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: CupertinoColors.secondaryLabel,
+                          ),
+                        ),
+                        const SizedBox(height: ThemeConstants.spacingSm),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(ThemeConstants.borderRadiusMd),
+                          child: Image.network(
+                            _currentScreenshot!,
+                            width: double.infinity,
+                            height: 150,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: ThemeConstants.spacingLg),
+
+                // Title
+                _buildSection(
+                  title: l10n.basicInfo,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(CupertinoIcons.camera, size: 18),
-                      SizedBox(width: 8),
-                      Text('截图'),
+                      _buildTextFieldWithActions(
+                        l10n: l10n,
+                        controller: _titleController,
+                        placeholder: l10n.title,
+                        minLines: 1,
+                        maxLines: 3,
+                        onGenerate: () => _generateTitle(l10n),
+                        onTranslate: () => _showTranslateOptions(isTitle: true, l10n: l10n),
+                      ),
+                      const SizedBox(height: ThemeConstants.spacingMd),
+                      _buildTextFieldWithActions(
+                        l10n: l10n,
+                        controller: _descriptionController,
+                        placeholder: l10n.description,
+                        minLines: 3,
+                        maxLines: 10,
+                        onGenerate: () => _generateDescription(l10n),
+                        onTranslate: () => _showTranslateOptions(isTitle: false, l10n: l10n),
+                      ),
                     ],
                   ),
                 ),
-              ),
-            // Show screenshot if available
-            if (_currentScreenshot != null)
-              Padding(
-                padding: const EdgeInsets.only(top: ThemeConstants.spacingMd),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '已选择截图：',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: CupertinoColors.secondaryLabel,
-                      ),
-                    ),
-                    const SizedBox(height: ThemeConstants.spacingSm),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(ThemeConstants.borderRadiusMd),
-                      child: Image.network(
-                        _currentScreenshot!,
-                        width: double.infinity,
-                        height: 150,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: ThemeConstants.spacingLg),
+
+                // Usage Tag
+                _buildSection(
+                  title: l10n.usageStatus,
+                  child: _buildSegmentedControl(
+                    l10n: l10n,
+                    value: _usageTag,
+                    options: _usageTags,
+                    labels: _usageTags.map((tag) => _getUsageTagLabel(tag, l10n)).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _usageTag = value;
+                        _onChanged();
+                      });
+                    },
+                  ),
                 ),
-              ),
-            const SizedBox(height: ThemeConstants.spacingLg),
+                const SizedBox(height: ThemeConstants.spacingLg),
 
-            // Title
-            _buildSection(
-              title: '基本信息',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildTextFieldWithActions(
-                    controller: _titleController,
-                    placeholder: '标题',
-                    minLines: 1,
-                    maxLines: 3,
-                    onGenerate: _generateTitle,
-                    onTranslate: () => _showTranslateOptions(isTitle: true),
+                // Viral Tag
+                _buildSection(
+                  title: l10n.viralStatus,
+                  child: _buildSegmentedControl(
+                    l10n: l10n,
+                    value: _viralTag,
+                    options: _viralTags,
+                    labels: _viralTags.map((tag) => _getViralTagLabel(tag, l10n)).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _viralTag = value;
+                        _onChanged();
+                      });
+                    },
                   ),
-                  const SizedBox(height: ThemeConstants.spacingMd),
-                  _buildTextFieldWithActions(
-                    controller: _descriptionController,
-                    placeholder: '描述',
-                    minLines: 3,
-                    maxLines: 10,
-                    onGenerate: _generateDescription,
-                    onTranslate: () => _showTranslateOptions(isTitle: false),
+                ),
+                const SizedBox(height: ThemeConstants.spacingLg),
+
+                // File Info
+                _buildSection(
+                  title: l10n.fileInfo,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildInfoRow(l10n.fileName, widget.material.fileName),
+                      const SizedBox(height: ThemeConstants.spacingSm),
+                      _buildInfoRow(l10n.size, widget.material.fileSizeFormatted),
+                      const SizedBox(height: ThemeConstants.spacingSm),
+                      _buildInfoRow(l10n.type, widget.material.folderType),
+                      if (widget.material.createdAt != null) ...[
+                        const SizedBox(height: ThemeConstants.spacingSm),
+                        _buildInfoRow(l10n.uploadTime, _formatDate(widget.material.createdAt!)),
+                      ],
+                      const SizedBox(height: ThemeConstants.spacingMd),
+                      CupertinoButton.filled(
+                        onPressed: _isLoading ? null : () => _downloadMedia(l10n),
+                        child: _isLoading
+                            ? const CupertinoActivityIndicator()
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(CupertinoIcons.arrow_down_doc, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(widget.material.isVideo ? l10n.downloadVideo : l10n.downloadImage),
+                                ],
+                              ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(height: ThemeConstants.spacingLg),
-
-            // Usage Tag
-            _buildSection(
-              title: '使用状态',
-              child: _buildSegmentedControl(
-                value: _usageTag,
-                options: _usageTags,
-                labels: _usageTags.map(_getUsageTagLabel).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _usageTag = value;
-                    _onChanged();
-                  });
-                },
-              ),
-            ),
-            const SizedBox(height: ThemeConstants.spacingLg),
-
-            // Viral Tag
-            _buildSection(
-              title: '爆款状态',
-              child: _buildSegmentedControl(
-                value: _viralTag,
-                options: _viralTags,
-                labels: _viralTags.map(_getViralTagLabel).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _viralTag = value;
-                    _onChanged();
-                  });
-                },
-              ),
-            ),
-            const SizedBox(height: ThemeConstants.spacingLg),
-
-            // File Info
-            _buildSection(
-              title: '文件信息',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoRow('文件名', widget.material.fileName),
-                  const SizedBox(height: ThemeConstants.spacingSm),
-                  _buildInfoRow('大小', widget.material.fileSizeFormatted),
-                  const SizedBox(height: ThemeConstants.spacingSm),
-                  _buildInfoRow('类型', widget.material.folderType),
-                  if (widget.material.createdAt != null) ...[
-                    const SizedBox(height: ThemeConstants.spacingSm),
-                    _buildInfoRow('上传时间', _formatDate(widget.material.createdAt!)),
-                  ],
-                  const SizedBox(height: ThemeConstants.spacingMd),
-                  if (widget.material.isVideo)
-                    CupertinoButton.filled(
-                      onPressed: _isLoading ? null : _downloadVideo,
-                      child: _isLoading
-                          ? const CupertinoActivityIndicator()
-                          : const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(CupertinoIcons.arrow_down_doc, size: 18),
-                                SizedBox(width: 8),
-                                Text('下载视频'),
-                              ],
-                            ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -700,6 +772,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
   }
 
   Widget _buildTextFieldWithActions({
+    required AppLocalizations l10n,
     required TextEditingController controller,
     required String placeholder,
     int minLines = 1,
@@ -739,12 +812,12 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                 onPressed: _isAiGenerating ? null : onGenerate,
                 child: _isAiGenerating
                     ? const CupertinoActivityIndicator()
-                    : const Row(
+                    : Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(CupertinoIcons.sparkles, size: 16),
-                          SizedBox(width: 4),
-                          Text('AI生成', style: TextStyle(fontSize: 14)),
+                          const Icon(CupertinoIcons.sparkles, size: 16),
+                          const SizedBox(width: 4),
+                          Text(l10n.aiGenerate, style: const TextStyle(fontSize: 14)),
                         ],
                       ),
               ),
@@ -756,12 +829,12 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                 ),
                 color: CupertinoColors.systemGrey5,
                 onPressed: _isAiGenerating ? null : onTranslate,
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(CupertinoIcons.globe, size: 16),
-                    SizedBox(width: 4),
-                    Text('翻译', style: TextStyle(fontSize: 14)),
+                    const Icon(CupertinoIcons.globe, size: 16),
+                    const SizedBox(width: 4),
+                    Text(l10n.translateText, style: const TextStyle(fontSize: 14)),
                   ],
                 ),
               ),
@@ -772,13 +845,13 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                   vertical: ThemeConstants.spacingSm,
                 ),
                 color: CupertinoColors.systemGrey5,
-                onPressed: controller.text.isEmpty ? null : () => _copyToClipboard(controller.text),
-                child: const Row(
+                onPressed: controller.text.isEmpty ? null : () => _copyToClipboard(controller.text, l10n),
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(CupertinoIcons.doc_on_doc, size: 16),
-                    SizedBox(width: 4),
-                    Text('复制', style: TextStyle(fontSize: 14)),
+                    const Icon(CupertinoIcons.doc_on_doc, size: 16),
+                    const SizedBox(width: 4),
+                    Text(l10n.copy, style: const TextStyle(fontSize: 14)),
                   ],
                 ),
               ),
@@ -790,6 +863,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
   }
 
   Widget _buildSegmentedControl({
+    required AppLocalizations l10n,
     required String value,
     required List<String> options,
     required List<String> labels,

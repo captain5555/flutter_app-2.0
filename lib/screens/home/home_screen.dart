@@ -2,11 +2,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/material_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../constants/theme_constants.dart';
 import '../../widgets/material_card.dart';
 import '../../models/material.dart';
 import '../../models/user.dart';
 import '../../services/user_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../login/login_screen.dart';
 import '../settings/settings_screen.dart';
 import '../trash/trash_screen.dart';
@@ -52,40 +54,45 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoTabScaffold(
-      tabBar: CupertinoTabBar(
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.photo),
-            label: '素材',
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, child) {
+        final l10n = AppLocalizations(settingsProvider.locale);
+        return CupertinoTabScaffold(
+          tabBar: CupertinoTabBar(
+            items: [
+              BottomNavigationBarItem(
+                icon: const Icon(CupertinoIcons.photo),
+                label: l10n.materials,
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(CupertinoIcons.trash),
+                label: l10n.trash,
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(CupertinoIcons.settings),
+                label: l10n.settings,
+              ),
+            ],
+            currentIndex: _selectedIndex,
+            onTap: (index) {
+              setState(() {
+                _selectedIndex = index;
+              });
+            },
           ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.trash),
-            label: '垃圾箱',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.settings),
-            label: '设置',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-      ),
-      tabBuilder: (context, index) {
-        if (index == 0) {
-          return _MaterialsTab(
-            onLogout: _logout,
-            onRefresh: _loadMaterials,
-          );
-        } else if (index == 1) {
-          return const TrashScreen();
-        } else {
-          return const SettingsScreen();
-        }
+          tabBuilder: (context, index) {
+            if (index == 0) {
+              return _MaterialsTab(
+                onLogout: _logout,
+                onRefresh: _loadMaterials,
+              );
+            } else if (index == 1) {
+              return const TrashScreen();
+            } else {
+              return const SettingsScreen();
+            }
+          },
+        );
       },
     );
   }
@@ -174,20 +181,22 @@ class _MaterialsTabState extends State<_MaterialsTab> {
   }
 
   void _showUserSwitcher() {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final l10n = AppLocalizations(settingsProvider.locale);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.user?.role != 'admin') return;
 
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => CupertinoActionSheet(
-        title: const Text('选择查看用户'),
+        title: Text(l10n.selectViewUser),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
               _switchViewingUser(null);
             },
-            child: Text('${authProvider.user?.username} (我)'),
+            child: Text('${authProvider.user?.username}${l10n.me}'),
           ),
           ..._users.where((u) => u.id != authProvider.user?.id).map((user) => CupertinoActionSheetAction(
                 onPressed: () {
@@ -200,7 +209,7 @@ class _MaterialsTabState extends State<_MaterialsTab> {
         cancelButton: CupertinoActionSheetAction(
           isDefaultAction: true,
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('取消'),
+          child: Text(l10n.cancel),
         ),
       ),
     );
@@ -225,19 +234,22 @@ class _MaterialsTabState extends State<_MaterialsTab> {
   Future<void> _handleBatchTrash() async {
     if (_selectedIds.isEmpty) return;
 
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final l10n = AppLocalizations(settingsProvider.locale);
+
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: Text('确认删除 ${_selectedIds.length} 项？'),
-        content: const Text('删除的素材将移到垃圾箱'),
+        title: Text(l10n.confirmDeleteItems(_selectedIds.length)),
+        content: Text(l10n.deleteMovedToTrash),
         actions: [
           CupertinoDialogAction(
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
             onPressed: () => Navigator.pop(ctx, false),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
-            child: const Text('删除'),
+            child: Text(l10n.delete),
             onPressed: () => Navigator.pop(ctx, true),
           ),
         ],
@@ -251,6 +263,9 @@ class _MaterialsTabState extends State<_MaterialsTab> {
   }
 
   void _showCopyDialog() {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final l10n = AppLocalizations(settingsProvider.locale);
+
     if (_users.isEmpty && !_isLoadingUsers) {
       _loadUsers();
     }
@@ -258,14 +273,14 @@ class _MaterialsTabState extends State<_MaterialsTab> {
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: Text('复制 ${_selectedIds.length} 项到'),
+        title: Text(l10n.copyItemsTo(_selectedIds.length)),
         content: _isLoadingUsers
             ? const Padding(
                 padding: EdgeInsets.only(top: 16),
                 child: CupertinoActivityIndicator(),
               )
             : _users.isEmpty
-                ? const Text('暂无其他用户')
+                ? Text(l10n.noOtherUsers)
                 : null,
         actions: [
           if (!_isLoadingUsers)
@@ -278,7 +293,7 @@ class _MaterialsTabState extends State<_MaterialsTab> {
                 )),
           CupertinoDialogAction(
             isDefaultAction: true,
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
             onPressed: () => Navigator.pop(ctx),
           ),
         ],
@@ -287,6 +302,9 @@ class _MaterialsTabState extends State<_MaterialsTab> {
   }
 
   void _showMoveDialog() {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final l10n = AppLocalizations(settingsProvider.locale);
+
     if (_users.isEmpty && !_isLoadingUsers) {
       _loadUsers();
     }
@@ -294,14 +312,14 @@ class _MaterialsTabState extends State<_MaterialsTab> {
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: Text('移动 ${_selectedIds.length} 项到'),
+        title: Text(l10n.moveItemsTo(_selectedIds.length)),
         content: _isLoadingUsers
             ? const Padding(
                 padding: EdgeInsets.only(top: 16),
                 child: CupertinoActivityIndicator(),
               )
             : _users.isEmpty
-                ? const Text('暂无其他用户')
+                ? Text(l10n.noOtherUsers)
                 : null,
         actions: [
           if (!_isLoadingUsers)
@@ -314,7 +332,7 @@ class _MaterialsTabState extends State<_MaterialsTab> {
                 )),
           CupertinoDialogAction(
             isDefaultAction: true,
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
             onPressed: () => Navigator.pop(ctx),
           ),
         ],
@@ -323,36 +341,41 @@ class _MaterialsTabState extends State<_MaterialsTab> {
   }
 
   void _showFolderSelectionForMove(User targetUser) {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final l10n = AppLocalizations(settingsProvider.locale);
+
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => CupertinoActionSheet(
-        title: Text('选择目标文件夹（${targetUser.username}）'),
+        title: Text(l10n.selectTargetFolder(targetUser.username)),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
               _handleMove(targetUser, 'images');
             },
-            child: const Text('图片'),
+            child: Text(l10n.images),
           ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
               _handleMove(targetUser, 'videos');
             },
-            child: const Text('视频'),
+            child: Text(l10n.videos),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           isDefaultAction: true,
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('取消'),
+          child: Text(l10n.cancel),
         ),
       ),
     );
   }
 
   Future<void> _handleCopy(User targetUser) async {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final l10n = AppLocalizations(settingsProvider.locale);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.user == null) return;
 
@@ -362,7 +385,7 @@ class _MaterialsTabState extends State<_MaterialsTab> {
         context: context,
         barrierDismissible: false,
         builder: (ctx) => CupertinoAlertDialog(
-          title: Text('复制到 ${targetUser.username}...'),
+          title: Text(l10n.copyingTo(targetUser.username)),
           content: const Center(
             child: Padding(
               padding: EdgeInsets.only(top: 16),
@@ -388,11 +411,11 @@ class _MaterialsTabState extends State<_MaterialsTab> {
           showCupertinoDialog(
             context: context,
             builder: (ctx) => CupertinoAlertDialog(
-              title: const Text('复制成功'),
-              content: Text('已复制到 ${targetUser.username}'),
+              title: Text(l10n.copySuccess),
+              content: Text(l10n.copiedTo(targetUser.username)),
               actions: [
                 CupertinoDialogAction(
-                  child: const Text('确定'),
+                  child: Text(l10n.ok),
                   onPressed: () => Navigator.pop(ctx),
                 ),
               ],
@@ -406,11 +429,11 @@ class _MaterialsTabState extends State<_MaterialsTab> {
         showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('复制失败'),
+            title: Text(l10n.copyFailed),
             content: Text(e.toString()),
             actions: [
               CupertinoDialogAction(
-                child: const Text('确定'),
+                child: Text(l10n.ok),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -421,6 +444,8 @@ class _MaterialsTabState extends State<_MaterialsTab> {
   }
 
   Future<void> _handleMove(User targetUser, String targetFolder) async {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final l10n = AppLocalizations(settingsProvider.locale);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.user == null) return;
 
@@ -430,7 +455,7 @@ class _MaterialsTabState extends State<_MaterialsTab> {
         context: context,
         barrierDismissible: false,
         builder: (ctx) => CupertinoAlertDialog(
-          title: Text('移动到 ${targetUser.username}...'),
+          title: Text(l10n.movingTo(targetUser.username)),
           content: const Center(
             child: Padding(
               padding: EdgeInsets.only(top: 16),
@@ -457,11 +482,11 @@ class _MaterialsTabState extends State<_MaterialsTab> {
           showCupertinoDialog(
             context: context,
             builder: (ctx) => CupertinoAlertDialog(
-              title: const Text('移动成功'),
-              content: Text('已移动到 ${targetUser.username}'),
+              title: Text(l10n.moveSuccessful),
+              content: Text(l10n.copiedTo(targetUser.username)),
               actions: [
                 CupertinoDialogAction(
-                  child: const Text('确定'),
+                  child: Text(l10n.ok),
                   onPressed: () => Navigator.pop(ctx),
                 ),
               ],
@@ -475,11 +500,11 @@ class _MaterialsTabState extends State<_MaterialsTab> {
         showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('移动失败'),
+            title: Text(l10n.moveFailed),
             content: Text(e.toString()),
             actions: [
               CupertinoDialogAction(
-                child: const Text('确定'),
+                child: Text(l10n.ok),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -490,37 +515,40 @@ class _MaterialsTabState extends State<_MaterialsTab> {
   }
 
   void _showUploadOptions() {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final l10n = AppLocalizations(settingsProvider.locale);
+
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => CupertinoActionSheet(
-        title: const Text('选择上传方式'),
+        title: Text(l10n.selectUploadMethod),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
               _pickFromGallery();
             },
-            child: const Text('相册选择'),
+            child: Text(l10n.chooseFromGallery),
           ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
               _takePhoto();
             },
-            child: const Text('拍照'),
+            child: Text(l10n.takePhoto),
           ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
               _pickFile();
             },
-            child: const Text('文件选择'),
+            child: Text(l10n.chooseFile),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           isDefaultAction: true,
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('取消'),
+          child: Text(l10n.cancel),
         ),
       ),
     );
@@ -573,6 +601,8 @@ class _MaterialsTabState extends State<_MaterialsTab> {
   }
 
   Future<void> _uploadFile(List<int> bytes, String fileName) async {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final l10n = AppLocalizations(settingsProvider.locale);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.user == null) return;
 
@@ -581,9 +611,9 @@ class _MaterialsTabState extends State<_MaterialsTab> {
       showCupertinoDialog(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => const CupertinoAlertDialog(
-          title: Text('上传中...'),
-          content: Center(
+        builder: (ctx) => CupertinoAlertDialog(
+          title: Text(l10n.uploading),
+          content: const Center(
             child: Padding(
               padding: EdgeInsets.only(top: 16),
               child: CupertinoActivityIndicator(),
@@ -607,10 +637,10 @@ class _MaterialsTabState extends State<_MaterialsTab> {
         showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('上传成功'),
+            title: Text(l10n.uploadSuccessful),
             actions: [
               CupertinoDialogAction(
-                child: const Text('确定'),
+                child: Text(l10n.ok),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -623,11 +653,11 @@ class _MaterialsTabState extends State<_MaterialsTab> {
         showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('上传失败'),
+            title: Text(l10n.uploadFailed),
             content: Text(e.toString()),
             actions: [
               CupertinoDialogAction(
-                child: const Text('确定'),
+                child: Text(l10n.ok),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -639,83 +669,88 @@ class _MaterialsTabState extends State<_MaterialsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final materialProvider = context.watch<MaterialProvider>();
-    final isAdmin = authProvider.user?.role == 'admin';
-    final viewingUser = isAdmin
-        ? (_viewingUserId != null
-            ? _users.firstWhere((u) => u.id == _viewingUserId, orElse: () => authProvider.user!)
-            : authProvider.user!)
-        : authProvider.user;
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, child) {
+        final l10n = AppLocalizations(settingsProvider.locale);
+        final authProvider = context.watch<AuthProvider>();
+        final materialProvider = context.watch<MaterialProvider>();
+        final isAdmin = authProvider.user?.role == 'admin';
+        final viewingUser = isAdmin
+            ? (_viewingUserId != null
+                ? _users.firstWhere((u) => u.id == _viewingUserId, orElse: () => authProvider.user!)
+                : authProvider.user!)
+            : authProvider.user;
 
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: _isSelectionMode
-            ? Text('已选择 ${_selectedIds.length} 项')
-            : GestureDetector(
-                onTap: isAdmin ? _showUserSwitcher : null,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(viewingUser?.username ?? '素材'),
-                    if (isAdmin) ...[
-                      const SizedBox(width: 4),
-                      Icon(
-                        CupertinoIcons.chevron_down,
-                        size: 14,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-        leading: _isSelectionMode
-            ? CupertinoButton(
-                padding: EdgeInsets.zero,
-                child: const Text('取消'),
-                onPressed: _exitSelectionMode,
-              )
-            : null,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (!_isSelectionMode) ...[
-              CupertinoButton(
-                padding: EdgeInsets.zero,
-                child: const Icon(CupertinoIcons.plus),
-                onPressed: _showUploadOptions,
-              ),
-              const SizedBox(width: 8),
-              CupertinoButton(
-                padding: EdgeInsets.zero,
-                child: const Icon(CupertinoIcons.square_arrow_right),
-                onPressed: widget.onLogout,
-              ),
-            ],
-          ],
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            // Folder Switcher
-            if (!_isSelectionMode)
-              Padding(
-                padding: const EdgeInsets.all(ThemeConstants.spacingMd),
-                child: _buildFolderSwitcher(),
-              ),
-            Expanded(
-              child: _buildContent(),
+        return CupertinoPageScaffold(
+          navigationBar: CupertinoNavigationBar(
+            middle: _isSelectionMode
+                ? Text(l10n.itemsSelected(_selectedIds.length))
+                : GestureDetector(
+                    onTap: isAdmin ? _showUserSwitcher : null,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(viewingUser?.username ?? l10n.media),
+                        if (isAdmin) ...[
+                          const SizedBox(width: 4),
+                          const Icon(
+                            CupertinoIcons.chevron_down,
+                            size: 14,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+            leading: _isSelectionMode
+                ? CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: Text(l10n.cancel),
+                    onPressed: _exitSelectionMode,
+                  )
+                : null,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!_isSelectionMode) ...[
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: const Icon(CupertinoIcons.plus),
+                    onPressed: _showUploadOptions,
+                  ),
+                  const SizedBox(width: 8),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: const Icon(CupertinoIcons.square_arrow_right),
+                    onPressed: widget.onLogout,
+                  ),
+                ],
+              ],
             ),
-            // Batch Action Bar
-            if (_isSelectionMode)
-              _buildBatchActionBar(),
-          ],
-        ),
-      ),
+          ),
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Folder Switcher
+                if (!_isSelectionMode)
+                  Padding(
+                    padding: const EdgeInsets.all(ThemeConstants.spacingMd),
+                    child: _buildFolderSwitcher(l10n),
+                  ),
+                Expanded(
+                  child: _buildContent(l10n),
+                ),
+                // Batch Action Bar
+                if (_isSelectionMode)
+                  _buildBatchActionBar(l10n),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildFolderSwitcher() {
+  Widget _buildFolderSwitcher(AppLocalizations l10n) {
     return Row(
       children: _folders.map((folder) {
         final isSelected = _currentFolder == folder;
@@ -737,7 +772,7 @@ class _MaterialsTabState extends State<_MaterialsTab> {
                 ),
               ),
               child: Text(
-                folder == 'images' ? '图片' : '视频',
+                folder == 'images' ? l10n.images : l10n.videos,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
@@ -752,7 +787,7 @@ class _MaterialsTabState extends State<_MaterialsTab> {
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(AppLocalizations l10n) {
     return Consumer<MaterialProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading && provider.materials.isEmpty) {
@@ -764,9 +799,9 @@ class _MaterialsTabState extends State<_MaterialsTab> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  '加载失败',
-                  style: TextStyle(
+                Text(
+                  l10n.failedToLoad,
+                  style: const TextStyle(
                     color: CupertinoColors.systemRed,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -775,7 +810,7 @@ class _MaterialsTabState extends State<_MaterialsTab> {
                 const SizedBox(height: 16),
                 CupertinoButton.filled(
                   onPressed: widget.onRefresh,
-                  child: const Text('重试'),
+                  child: Text(l10n.retry),
                 ),
               ],
             ),
@@ -795,9 +830,9 @@ class _MaterialsTabState extends State<_MaterialsTab> {
                   color: CupertinoColors.systemGrey3,
                 ),
                 const SizedBox(height: ThemeConstants.spacingMd),
-                const Text(
-                  '暂无素材',
-                  style: TextStyle(
+                Text(
+                  l10n.noItems,
+                  style: const TextStyle(
                     color: CupertinoColors.secondaryLabel,
                   ),
                 ),
@@ -845,7 +880,7 @@ class _MaterialsTabState extends State<_MaterialsTab> {
     );
   }
 
-  Widget _buildBatchActionBar() {
+  Widget _buildBatchActionBar(AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: ThemeConstants.spacingMd,
@@ -864,20 +899,20 @@ class _MaterialsTabState extends State<_MaterialsTab> {
         children: [
           _buildActionButton(
             icon: CupertinoIcons.trash,
-            label: '删除',
+            label: l10n.delete,
             isDestructive: true,
             onPressed: _handleBatchTrash,
           ),
           const SizedBox(width: ThemeConstants.spacingSm),
           _buildActionButton(
             icon: CupertinoIcons.doc_on_doc,
-            label: '复制',
+            label: l10n.copy,
             onPressed: _showCopyDialog,
           ),
           const SizedBox(width: ThemeConstants.spacingSm),
           _buildActionButton(
             icon: CupertinoIcons.arrow_right,
-            label: '移动',
+            label: l10n.moveItemsTo(0).split(' ')[0],
             onPressed: _showMoveDialog,
           ),
         ],

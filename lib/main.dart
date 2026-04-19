@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'utils/token_storage.dart';
@@ -7,6 +8,7 @@ import 'providers/auth_provider.dart';
 import 'providers/material_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
+import 'l10n/app_localizations.dart';
 import 'screens/login/login_screen.dart';
 import 'screens/home/home_screen.dart';
 
@@ -43,10 +45,20 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
+      child: Consumer2<ThemeProvider, SettingsProvider>(
+        builder: (context, themeProvider, settingsProvider, child) {
           return CupertinoApp(
-            title: 'NAS 素材管理',
+            title: AppLocalizations(settingsProvider.locale).appTitle,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              DefaultMaterialLocalizations.delegate,
+              DefaultCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('en'),
+              Locale('zh'),
+            ],
+            locale: settingsProvider.locale,
             theme: CupertinoThemeData(
               brightness: themeProvider.brightness,
               primaryColor: CupertinoColors.systemBlue,

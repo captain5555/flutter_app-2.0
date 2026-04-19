@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../services/admin_service.dart';
 import '../../constants/theme_constants.dart';
+import '../../l10n/app_localizations.dart';
 
 class BackupScreen extends StatefulWidget {
   const BackupScreen({super.key});
@@ -41,18 +43,18 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
-  Future<void> _createBackup() async {
+  Future<void> _createBackup(AppLocalizations l10n) async {
     setState(() => _isCreating = true);
 
     try {
       await _adminService.createBackup();
       await _loadBackups();
       if (mounted) {
-        _showSuccess('备份创建成功');
+        _showSuccess(l10n, l10n.backupCreatedSuccess);
       }
     } catch (e) {
       if (mounted) {
-        _showError('备份创建失败: $e');
+        _showError(l10n, l10n.backupCreatedFailed(e.toString()));
       }
     } finally {
       if (mounted) {
@@ -61,20 +63,20 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
-  Future<void> _deleteBackup(String backupId) async {
+  Future<void> _deleteBackup(String backupId, AppLocalizations l10n) async {
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除备份 $backupId 吗？'),
+        title: Text(l10n.confirmDeleteBackup),
+        content: Text(l10n.confirmDeleteBackupMessage(backupId)),
         actions: [
           CupertinoDialogAction(
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
             onPressed: () => Navigator.pop(ctx, false),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
-            child: const Text('删除'),
+            child: Text(l10n.delete),
             onPressed: () => Navigator.pop(ctx, true),
           ),
         ],
@@ -86,25 +88,25 @@ class _BackupScreenState extends State<BackupScreen> {
         await _adminService.deleteBackup(backupId);
         await _loadBackups();
         if (mounted) {
-          _showSuccess('删除成功');
+          _showSuccess(l10n, l10n.deleteSuccessMsg);
         }
       } catch (e) {
         if (mounted) {
-          _showError('删除失败: $e');
+          _showError(l10n, l10n.deleteFailed(e.toString()));
         }
       }
     }
   }
 
-  void _showSuccess(String message) {
+  void _showSuccess(AppLocalizations l10n, String message) {
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('成功'),
+        title: Text(l10n.success),
         content: Text(message),
         actions: [
           CupertinoDialogAction(
-            child: const Text('确定'),
+            child: Text(l10n.ok),
             onPressed: () => Navigator.pop(ctx),
           ),
         ],
@@ -112,15 +114,15 @@ class _BackupScreenState extends State<BackupScreen> {
     );
   }
 
-  void _showError(String message) {
+  void _showError(AppLocalizations l10n, String message) {
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('错误'),
+        title: Text(l10n.error),
         content: Text(message),
         actions: [
           CupertinoDialogAction(
-            child: const Text('确定'),
+            child: Text(l10n.ok),
             onPressed: () => Navigator.pop(ctx),
           ),
         ],
@@ -150,84 +152,91 @@ class _BackupScreenState extends State<BackupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('备份管理'),
-        trailing: _isCreating
-            ? const CupertinoActivityIndicator()
-            : CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: _createBackup,
-                child: const Icon(CupertinoIcons.plus),
-              ),
-      ),
-      child: SafeArea(
-        child: _isLoading
-            ? const Center(child: CupertinoActivityIndicator())
-            : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '加载失败',
-                          style: const TextStyle(
-                            color: CupertinoColors.systemRed,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          style: const TextStyle(
-                            color: CupertinoColors.secondaryLabel,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        CupertinoButton.filled(
-                          onPressed: _loadBackups,
-                          child: const Text('重试'),
-                        ),
-                      ],
-                    ),
-                  )
-                : _backups.isEmpty
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, child) {
+        final l10n = AppLocalizations(settingsProvider.locale);
+
+        return CupertinoPageScaffold(
+          navigationBar: CupertinoNavigationBar(
+            middle: Text(l10n.backupManagement),
+            trailing: _isCreating
+                ? const CupertinoActivityIndicator()
+                : CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => _createBackup(l10n),
+                    child: const Icon(CupertinoIcons.plus),
+                  ),
+          ),
+          child: SafeArea(
+            child: _isLoading
+                ? const Center(child: CupertinoActivityIndicator())
+                : _error != null
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              CupertinoIcons.archivebox,
-                              size: 60,
-                              color: CupertinoColors.systemGrey3,
+                            Text(
+                              l10n.failedToLoad,
+                              style: const TextStyle(
+                                color: CupertinoColors.systemRed,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            const SizedBox(height: ThemeConstants.spacingMd),
-                            const Text(
-                              '暂无备份',
-                              style: TextStyle(
+                            const SizedBox(height: 16),
+                            Text(
+                              _error!,
+                              style: const TextStyle(
                                 color: CupertinoColors.secondaryLabel,
                               ),
+                            ),
+                            const SizedBox(height: 16),
+                            CupertinoButton.filled(
+                              onPressed: _loadBackups,
+                              child: Text(l10n.retry),
                             ),
                           ],
                         ),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(ThemeConstants.spacingMd),
-                        itemCount: _backups.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: ThemeConstants.spacingSm),
-                        itemBuilder: (context, index) {
-                          final backup = _backups[index] as Map<String, dynamic>;
-                          return _BackupCard(
-                            backup: backup,
-                            dateLabel: _formatDate(backup['created_at']),
-                            sizeLabel: _formatSize(backup['size']),
-                            onDelete: () => _deleteBackup(backup['id']?.toString() ?? ''),
-                          );
-                        },
-                      ),
-      ),
+                    : _backups.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  CupertinoIcons.archivebox,
+                                  size: 60,
+                                  color: CupertinoColors.systemGrey3,
+                                ),
+                                const SizedBox(height: ThemeConstants.spacingMd),
+                                Text(
+                                  l10n.noBackups,
+                                  style: const TextStyle(
+                                    color: CupertinoColors.secondaryLabel,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.all(ThemeConstants.spacingMd),
+                            itemCount: _backups.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: ThemeConstants.spacingSm),
+                            itemBuilder: (context, index) {
+                              final backup = _backups[index] as Map<String, dynamic>;
+                              return _BackupCard(
+                                backup: backup,
+                                dateLabel: _formatDate(backup['created_at']),
+                                sizeLabel: _formatSize(backup['size']),
+                                l10n: l10n,
+                                onDelete: () => _deleteBackup(backup['id']?.toString() ?? '', l10n),
+                              );
+                            },
+                          ),
+          ),
+        );
+      },
     );
   }
 }
@@ -236,12 +245,14 @@ class _BackupCard extends StatelessWidget {
   final Map<String, dynamic> backup;
   final String dateLabel;
   final String sizeLabel;
+  final AppLocalizations l10n;
   final VoidCallback onDelete;
 
   const _BackupCard({
     required this.backup,
     required this.dateLabel,
     required this.sizeLabel,
+    required this.l10n,
     required this.onDelete,
   });
 
@@ -274,7 +285,7 @@ class _BackupCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  backup['id']?.toString() ?? '未知',
+                  backup['id']?.toString() ?? l10n.unknown,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,

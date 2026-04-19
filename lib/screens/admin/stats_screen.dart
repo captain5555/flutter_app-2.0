@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../services/admin_service.dart';
 import '../../constants/theme_constants.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/user.dart';
 
 class StatsScreen extends StatefulWidget {
@@ -50,47 +52,53 @@ class _StatsScreenState extends State<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('系统统计'),
-      ),
-      child: SafeArea(
-        child: _isLoading
-            ? const Center(child: CupertinoActivityIndicator())
-            : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '加载失败',
-                          style: const TextStyle(
-                            color: CupertinoColors.systemRed,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, child) {
+        final l10n = AppLocalizations(settingsProvider.locale);
+
+        return CupertinoPageScaffold(
+          navigationBar: CupertinoNavigationBar(
+            middle: Text(l10n.systemStats),
+          ),
+          child: SafeArea(
+            child: _isLoading
+                ? const Center(child: CupertinoActivityIndicator())
+                : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              l10n.failedToLoad,
+                              style: const TextStyle(
+                                color: CupertinoColors.systemRed,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: CupertinoColors.secondaryLabel,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            CupertinoButton.filled(
+                              onPressed: _loadStats,
+                              child: Text(l10n.retry),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          style: const TextStyle(
-                            color: CupertinoColors.secondaryLabel,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        CupertinoButton.filled(
-                          onPressed: _loadStats,
-                          child: const Text('重试'),
-                        ),
-                      ],
-                    ),
-                  )
-                : _buildContent(),
-      ),
+                      )
+                    : _buildContent(l10n),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(AppLocalizations l10n) {
     final userCount = _stats?['userCount'] ?? 0;
     final totalFiles = _stats?['totalFiles'] ?? 0;
     final totalSize = _stats?['totalSize'] ?? 0;
@@ -100,25 +108,29 @@ class _StatsScreenState extends State<StatsScreen> {
       padding: const EdgeInsets.all(ThemeConstants.spacingMd),
       children: [
         _buildSection(
-          title: '概览',
+          l10n: l10n,
+          title: l10n.overview,
           children: [
             _buildStatCard(
+              l10n: l10n,
               icon: CupertinoIcons.person_3,
-              title: '用户数',
+              title: l10n.users,
               value: '$userCount',
               color: CupertinoColors.systemBlue,
             ),
             const SizedBox(height: ThemeConstants.spacingMd),
             _buildStatCard(
+              l10n: l10n,
               icon: CupertinoIcons.photo_on_rectangle,
-              title: '文件数',
+              title: l10n.files,
               value: '$totalFiles',
               color: CupertinoColors.systemGreen,
             ),
             const SizedBox(height: ThemeConstants.spacingMd),
             _buildStatCard(
+              l10n: l10n,
               icon: CupertinoIcons.tray_full,
-              title: '总存储',
+              title: l10n.totalStorage,
               value: _formatSize(totalSize),
               color: CupertinoColors.systemOrange,
             ),
@@ -127,12 +139,14 @@ class _StatsScreenState extends State<StatsScreen> {
         const SizedBox(height: ThemeConstants.spacingLg),
         if (storageByUser.isNotEmpty)
           _buildSection(
-            title: '用户存储详情',
+            l10n: l10n,
+            title: l10n.userStorageDetails,
             children: storageByUser.map((item) {
               final userId = item['user_id'] ?? 0;
               final fileCount = item['file_count'] ?? 0;
               final totalSize = item['total_size'] ?? 0;
               return _buildUserStorageCard(
+                l10n: l10n,
                 userId: userId,
                 fileCount: fileCount,
                 totalSize: totalSize,
@@ -144,6 +158,7 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Widget _buildSection({
+    required AppLocalizations l10n,
     required String title,
     required List<Widget> children,
   }) {
@@ -165,6 +180,7 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Widget _buildStatCard({
+    required AppLocalizations l10n,
     required IconData icon,
     required String title,
     required String value,
@@ -220,6 +236,7 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Widget _buildUserStorageCard({
+    required AppLocalizations l10n,
     required int userId,
     required int fileCount,
     required int totalSize,
@@ -256,7 +273,7 @@ class _StatsScreenState extends State<StatsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '用户 $userId',
+                  'User $userId',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -264,7 +281,7 @@ class _StatsScreenState extends State<StatsScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$fileCount 个文件 · ${_formatSize(totalSize)}',
+                  '$fileCount files · ${_formatSize(totalSize)}',
                   style: const TextStyle(
                     fontSize: 12,
                     color: CupertinoColors.secondaryLabel,

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../constants/theme_constants.dart';
 import '../../utils/user_storage.dart';
+import '../../l10n/app_localizations.dart';
 import '../home/home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -35,11 +36,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showUserPicker() {
+    final l10n = AppLocalizations.of(context)!;
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => CupertinoActionSheet(
-        title: const Text('选择用户'),
-        message: _savedUsers.isEmpty ? const Text('暂无保存的用户') : null,
+        title: Text(l10n.selectUser),
+        message: _savedUsers.isEmpty ? Text(l10n.noSavedUsers) : null,
         actions: _savedUsers.isEmpty
             ? []
             : _savedUsers.map((username) => CupertinoActionSheetAction(
@@ -55,22 +57,23 @@ class _LoginScreenState extends State<LoginScreen> {
         cancelButton: CupertinoActionSheetAction(
           isDefaultAction: true,
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('取消'),
+          child: Text(l10n.cancel),
         ),
       ),
     );
   }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
 
     if (username.isEmpty) {
-      _showError('请输入用户名');
+      _showError(l10n.pleaseEnterUsername);
       return;
     }
     if (password.isEmpty) {
-      _showError('请输入密码');
+      _showError(l10n.pleaseEnterPassword);
       return;
     }
 
@@ -80,7 +83,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final success = await authProvider.login(username, password);
 
     if (success) {
-      // 保存用户名到本地
       await UserStorage.saveUser(username);
       await _loadSavedUsers();
 
@@ -91,20 +93,21 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } else if (mounted) {
       setState(() => _isLoading = false);
-      _showError(authProvider.error ?? '登录失败');
+      _showError(authProvider.error ?? l10n.loginFailed);
     }
   }
 
   void _showError(String message) {
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
     showCupertinoDialog(
       context: context,
       builder: (context) => CupertinoAlertDialog(
-        title: const Text('提示'),
+        title: Text(l10n.notice),
         content: Text(message),
         actions: [
           CupertinoDialogAction(
-            child: const Text('确定'),
+            child: Text(l10n.ok),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -121,9 +124,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('登录'),
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(l10n.login),
       ),
       child: SafeArea(
         child: Consumer<AuthProvider>(
@@ -144,14 +148,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: CupertinoTheme.of(context).primaryColor,
                   ),
                   const SizedBox(height: ThemeConstants.spacingMd),
-                  const Text(
-                    'NAS 素材管理',
+                  Text(
+                    l10n.appTitle,
                     style: ThemeConstants.titleStyle,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: ThemeConstants.spacingXl * 2),
 
-                  // 用户名
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: ThemeConstants.spacingSm),
                     child: Row(
@@ -159,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Expanded(
                           child: CupertinoTextField(
                             controller: _usernameController,
-                            placeholder: '用户名',
+                            placeholder: l10n.username,
                             prefix: const Padding(
                               padding: EdgeInsets.all(8.0),
                               child: Icon(CupertinoIcons.person, size: 20),
@@ -183,12 +186,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: ThemeConstants.spacingMd),
 
-                  // 密码
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: ThemeConstants.spacingSm),
                     child: CupertinoTextField(
                       controller: _passwordController,
-                      placeholder: '密码',
+                      placeholder: l10n.password,
                       obscureText: _obscurePassword,
                       prefix: const Padding(
                         padding: EdgeInsets.all(8.0),
@@ -212,15 +214,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: ThemeConstants.spacingXl),
 
-                  // 登录按钮
                   CupertinoButton.filled(
                     onPressed: _submit,
-                    child: const Text('登录'),
+                    child: Text(l10n.login),
                   ),
 
                   const SizedBox(height: ThemeConstants.spacingMd),
-                  const Text(
-                    'admin账户: admin / admin123\n其他用户: 用户名 / 123',
+                  Text(
+                    l10n.adminAccountHint,
                     style: ThemeConstants.captionStyle,
                     textAlign: TextAlign.center,
                   ),

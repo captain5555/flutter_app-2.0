@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../services/admin_service.dart';
 import '../../constants/theme_constants.dart';
+import '../../l10n/app_localizations.dart';
 
 class LogsScreen extends StatefulWidget {
   const LogsScreen({super.key});
@@ -52,112 +54,119 @@ class _LogsScreenState extends State<LogsScreen> {
     }
   }
 
-  String _getActionLabel(String? action) {
+  String _getActionLabel(String? action, AppLocalizations l10n) {
     switch (action) {
       case 'login':
-        return '登录';
+        return l10n.login;
       case 'logout':
-        return '退出';
+        return l10n.logout;
       case 'upload_material':
-        return '上传素材';
+        return l10n.uploadMaterial;
       case 'update_material':
-        return '更新素材';
+        return l10n.updateMaterial;
       case 'trash_material':
-        return '删除素材';
+        return l10n.deleteMaterial;
       case 'create_user':
-        return '创建用户';
+        return l10n.createUser;
       case 'delete_user':
-        return '删除用户';
+        return l10n.deleteUser;
       case 'batch_trash':
-        return '批量删除';
+        return l10n.batchDelete;
       case 'batch_restore':
-        return '批量恢复';
+        return l10n.batchRestore;
       case 'batch_copy':
-        return '批量复制';
+        return l10n.batchCopy;
       case 'batch_move':
-        return '批量移动';
+        return l10n.batchMove;
       default:
-        return action ?? '未知';
+        return action ?? l10n.unknownAction;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('操作日志'),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: _loadLogs,
-          child: const Icon(CupertinoIcons.refresh),
-        ),
-      ),
-      child: SafeArea(
-        child: _isLoading
-            ? const Center(child: CupertinoActivityIndicator())
-            : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '加载失败',
-                          style: const TextStyle(
-                            color: CupertinoColors.systemRed,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          style: const TextStyle(
-                            color: CupertinoColors.secondaryLabel,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        CupertinoButton.filled(
-                          onPressed: _loadLogs,
-                          child: const Text('重试'),
-                        ),
-                      ],
-                    ),
-                  )
-                : _logs.isEmpty
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, child) {
+        final l10n = AppLocalizations(settingsProvider.locale);
+
+        return CupertinoPageScaffold(
+          navigationBar: CupertinoNavigationBar(
+            middle: Text(l10n.operationLogs),
+            trailing: CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _loadLogs,
+              child: const Icon(CupertinoIcons.refresh),
+            ),
+          ),
+          child: SafeArea(
+            child: _isLoading
+                ? const Center(child: CupertinoActivityIndicator())
+                : _error != null
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              CupertinoIcons.text_bubble,
-                              size: 60,
-                              color: CupertinoColors.systemGrey3,
+                            Text(
+                              l10n.failedToLoad,
+                              style: const TextStyle(
+                                color: CupertinoColors.systemRed,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            const SizedBox(height: ThemeConstants.spacingMd),
-                            const Text(
-                              '暂无日志',
-                              style: TextStyle(
+                            const SizedBox(height: 16),
+                            Text(
+                              _error!,
+                              style: const TextStyle(
                                 color: CupertinoColors.secondaryLabel,
                               ),
+                            ),
+                            const SizedBox(height: 16),
+                            CupertinoButton.filled(
+                              onPressed: _loadLogs,
+                              child: Text(l10n.retry),
                             ),
                           ],
                         ),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(ThemeConstants.spacingMd),
-                        itemCount: _logs.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: ThemeConstants.spacingSm),
-                        itemBuilder: (context, index) {
-                          final log = _logs[index] as Map<String, dynamic>;
-                          return _LogCard(
-                            log: log,
-                            actionLabel: _getActionLabel(log['action']),
-                            dateLabel: _formatDate(log['created_at']),
-                          );
-                        },
-                      ),
-      ),
+                    : _logs.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  CupertinoIcons.text_bubble,
+                                  size: 60,
+                                  color: CupertinoColors.systemGrey3,
+                                ),
+                                const SizedBox(height: ThemeConstants.spacingMd),
+                                Text(
+                                  l10n.noLogs,
+                                  style: const TextStyle(
+                                    color: CupertinoColors.secondaryLabel,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.all(ThemeConstants.spacingMd),
+                            itemCount: _logs.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: ThemeConstants.spacingSm),
+                            itemBuilder: (context, index) {
+                              final log = _logs[index] as Map<String, dynamic>;
+                              return _LogCard(
+                                log: log,
+                                actionLabel: _getActionLabel(log['action'], l10n),
+                                dateLabel: _formatDate(log['created_at']),
+                                l10n: l10n,
+                              );
+                            },
+                          ),
+          ),
+        );
+      },
     );
   }
 }
@@ -166,11 +175,13 @@ class _LogCard extends StatelessWidget {
   final Map<String, dynamic> log;
   final String actionLabel;
   final String dateLabel;
+  final AppLocalizations l10n;
 
   const _LogCard({
     required this.log,
     required this.actionLabel,
     required this.dateLabel,
+    required this.l10n,
   });
 
   @override
@@ -217,7 +228,7 @@ class _LogCard extends StatelessWidget {
           if (log['user_id'] != null) ...[
             const SizedBox(height: 8),
             Text(
-              '用户ID: ${log['user_id']}',
+              l10n.userId(log['user_id'].toString()),
               style: const TextStyle(
                 fontSize: 12,
                 color: CupertinoColors.secondaryLabel,
@@ -227,7 +238,7 @@ class _LogCard extends StatelessWidget {
           if (log['target_type'] != null) ...[
             const SizedBox(height: 4),
             Text(
-              '目标类型: ${log['target_type']}',
+              l10n.targetType(log['target_type'].toString()),
               style: const TextStyle(
                 fontSize: 12,
                 color: CupertinoColors.secondaryLabel,
@@ -237,7 +248,7 @@ class _LogCard extends StatelessWidget {
           if (log['target_id'] != null) ...[
             const SizedBox(height: 4),
             Text(
-              '目标ID: ${log['target_id']}',
+              l10n.targetId(log['target_id'].toString()),
               style: const TextStyle(
                 fontSize: 12,
                 color: CupertinoColors.secondaryLabel,
@@ -247,7 +258,7 @@ class _LogCard extends StatelessWidget {
           if (log['details'] != null && log['details'].toString().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              '详情: ${log['details']}',
+              l10n.details(log['details'].toString()),
               style: const TextStyle(
                 fontSize: 12,
                 color: CupertinoColors.secondaryLabel,

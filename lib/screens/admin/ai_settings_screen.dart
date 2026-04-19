@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../services/ai_service.dart';
 import '../../constants/theme_constants.dart';
+import '../../l10n/app_localizations.dart';
 
 class AiSettingsScreen extends StatefulWidget {
   const AiSettingsScreen({super.key});
@@ -56,11 +58,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     }
   }
 
-  Future<void> _saveSettings() async {
+  Future<void> _saveSettings(AppLocalizations l10n) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.user?.role != 'admin') {
       if (mounted) {
-        _showError('只有管理员可以修改AI设置');
+        _showError(l10n, l10n.onlyAdminCanModifyAiSettings);
       }
       return;
     }
@@ -79,11 +81,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       );
 
       if (mounted) {
-        _showSuccess('保存成功');
+        _showSuccess(l10n, l10n.saveSuccessMsg);
       }
     } catch (e) {
       if (mounted) {
-        _showError('保存失败: $e');
+        _showError(l10n, l10n.saveFailedWithError(e.toString()));
       }
     } finally {
       if (mounted) {
@@ -92,15 +94,15 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     }
   }
 
-  void _showSuccess(String message) {
+  void _showSuccess(AppLocalizations l10n, String message) {
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('成功'),
+        title: Text(l10n.success),
         content: Text(message),
         actions: [
           CupertinoDialogAction(
-            child: const Text('确定'),
+            child: Text(l10n.ok),
             onPressed: () => Navigator.pop(ctx),
           ),
         ],
@@ -108,15 +110,15 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     );
   }
 
-  void _showError(String message) {
+  void _showError(AppLocalizations l10n, String message) {
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('错误'),
+        title: Text(l10n.error),
         content: Text(message),
         actions: [
           CupertinoDialogAction(
-            child: const Text('确定'),
+            child: Text(l10n.ok),
             onPressed: () => Navigator.pop(ctx),
           ),
         ],
@@ -138,113 +140,123 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('AI 设置'),
-        trailing: _isSaving
-            ? const CupertinoActivityIndicator()
-            : CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: _saveSettings,
-                child: const Text('保存'),
-              ),
-      ),
-      child: SafeArea(
-        child: _isLoading
-            ? const Center(child: CupertinoActivityIndicator())
-            : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '加载失败',
-                          style: const TextStyle(
-                            color: CupertinoColors.systemRed,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        CupertinoButton.filled(
-                          onPressed: _loadSettings,
-                          child: const Text('重试'),
-                        ),
-                      ],
-                    ),
-                  )
-                : Column(
-                    children: [
-                      // Tab selector
-                      Padding(
-                        padding: const EdgeInsets.all(ThemeConstants.spacingMd),
-                        child: CupertinoSegmentedControl<int>(
-                          groupValue: _currentTab,
-                          onValueChanged: (value) {
-                            setState(() {
-                              _currentTab = value;
-                            });
-                          },
-                          children: const {
-                            0: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                              child: Text('API配置'),
-                            ),
-                            1: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                              child: Text('提示词'),
-                            ),
-                            2: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                              child: Text('安全规则'),
-                            ),
-                            3: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                              child: Text('替换词'),
-                            ),
-                          },
-                        ),
-                      ),
-                      Expanded(
-                        child: IndexedStack(
-                          index: _currentTab,
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, child) {
+        final l10n = AppLocalizations(settingsProvider.locale);
+
+        return CupertinoPageScaffold(
+          navigationBar: CupertinoNavigationBar(
+            middle: Text(l10n.aiSettings),
+            trailing: _isSaving
+                ? const CupertinoActivityIndicator()
+                : CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => _saveSettings(l10n),
+                    child: Text(l10n.save),
+                  ),
+          ),
+          child: SafeArea(
+            child: _isLoading
+                ? const Center(child: CupertinoActivityIndicator())
+                : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            _buildApiConfigTab(),
-                            _buildPromptsTab(),
-                            _buildSafetyRulesTab(),
-                            _buildReplacementWordsTab(),
+                            Text(
+                              l10n.failedToLoad,
+                              style: const TextStyle(
+                                color: CupertinoColors.systemRed,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            CupertinoButton.filled(
+                              onPressed: _loadSettings,
+                              child: Text(l10n.retry),
+                            ),
                           ],
                         ),
+                      )
+                    : Column(
+                        children: [
+                          // Tab selector
+                          Padding(
+                            padding: const EdgeInsets.all(ThemeConstants.spacingMd),
+                            child: CupertinoSegmentedControl<int>(
+                              groupValue: _currentTab,
+                              onValueChanged: (value) {
+                                setState(() {
+                                  _currentTab = value;
+                                });
+                              },
+                              children: {
+                                0: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                  child: Text(l10n.apiConfig),
+                                ),
+                                1: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                  child: Text(l10n.prompts),
+                                ),
+                                2: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                  child: Text(l10n.safetyRulesTab),
+                                ),
+                                3: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                  child: Text(l10n.replacements),
+                                ),
+                              },
+                            ),
+                          ),
+                          Expanded(
+                            child: IndexedStack(
+                              index: _currentTab,
+                              children: [
+                                _buildApiConfigTab(l10n),
+                                _buildPromptsTab(l10n),
+                                _buildSafetyRulesTab(l10n),
+                                _buildReplacementWordsTab(l10n),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildApiConfigTab() {
+  Widget _buildApiConfigTab(AppLocalizations l10n) {
     return ListView(
       padding: const EdgeInsets.all(ThemeConstants.spacingMd),
       children: [
         _buildSection(
-          title: 'API 配置',
+          l10n: l10n,
+          title: l10n.apiConfig,
           children: [
             _buildTextField(
+              l10n: l10n,
               controller: _apiUrlController,
-              placeholder: 'API 地址',
+              placeholder: l10n.apiAddress,
               prefix: CupertinoIcons.link,
             ),
             const SizedBox(height: ThemeConstants.spacingMd),
             _buildTextField(
+              l10n: l10n,
               controller: _apiKeyController,
-              placeholder: 'API 密钥',
+              placeholder: l10n.apiKey,
               prefix: CupertinoIcons.lock,
               obscureText: true,
             ),
             const SizedBox(height: ThemeConstants.spacingMd),
             _buildTextField(
+              l10n: l10n,
               controller: _modelController,
-              placeholder: '模型名称',
+              placeholder: l10n.modelName,
               prefix: CupertinoIcons.circle_grid_3x3,
             ),
           ],
@@ -253,24 +265,27 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     );
   }
 
-  Widget _buildPromptsTab() {
+  Widget _buildPromptsTab(AppLocalizations l10n) {
     return ListView(
       padding: const EdgeInsets.all(ThemeConstants.spacingMd),
       children: [
         _buildSection(
-          title: '提示词配置',
+          l10n: l10n,
+          title: l10n.promptConfig,
           children: [
             _buildTextField(
+              l10n: l10n,
               controller: _titlePromptController,
-              placeholder: '标题生成提示词',
+              placeholder: l10n.titleGenerationPrompt,
               prefix: CupertinoIcons.doc_text,
               minLines: 5,
               maxLines: 10,
             ),
             const SizedBox(height: ThemeConstants.spacingMd),
             _buildTextField(
+              l10n: l10n,
               controller: _descriptionPromptController,
-              placeholder: '描述生成提示词',
+              placeholder: l10n.descriptionGenerationPrompt,
               prefix: CupertinoIcons.doc_text_fill,
               minLines: 5,
               maxLines: 10,
@@ -281,16 +296,18 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     );
   }
 
-  Widget _buildSafetyRulesTab() {
+  Widget _buildSafetyRulesTab(AppLocalizations l10n) {
     return ListView(
       padding: const EdgeInsets.all(ThemeConstants.spacingMd),
       children: [
         _buildSection(
-          title: '安全规则',
+          l10n: l10n,
+          title: l10n.safetyRules,
           children: [
             _buildTextField(
+              l10n: l10n,
               controller: _safetyRulesController,
-              placeholder: '安全规则',
+              placeholder: l10n.safetyRules,
               prefix: CupertinoIcons.shield_fill,
               minLines: 8,
               maxLines: 15,
@@ -301,24 +318,26 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     );
   }
 
-  Widget _buildReplacementWordsTab() {
+  Widget _buildReplacementWordsTab(AppLocalizations l10n) {
     return ListView(
       padding: const EdgeInsets.all(ThemeConstants.spacingMd),
       children: [
         _buildSection(
-          title: '替换词',
+          l10n: l10n,
+          title: l10n.replacementWords,
           children: [
             _buildTextField(
+              l10n: l10n,
               controller: _replacementWordsController,
-              placeholder: '替换词 (JSON格式)',
+              placeholder: l10n.replacementWords,
               prefix: CupertinoIcons.arrow_right_arrow_left,
               minLines: 8,
               maxLines: 15,
             ),
             const SizedBox(height: ThemeConstants.spacingSm),
-            const Text(
-              '格式: JSON数组，例如 [{"original":"敏感词1","replacement":"替换词1"},{"original":"敏感词2","replacement":"替换词2"}]',
-              style: TextStyle(
+            Text(
+              l10n.replacementWordsFormatHint,
+              style: const TextStyle(
                 fontSize: 12,
                 color: CupertinoColors.secondaryLabel,
               ),
@@ -330,6 +349,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Widget _buildSection({
+    required AppLocalizations l10n,
     required String title,
     required List<Widget> children,
   }) {
@@ -351,6 +371,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Widget _buildTextField({
+    required AppLocalizations l10n,
     required TextEditingController controller,
     required String placeholder,
     required IconData prefix,

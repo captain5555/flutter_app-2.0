@@ -6,6 +6,7 @@ import '../../models/user.dart';
 import '../../services/user_service.dart';
 import '../../utils/user_storage.dart';
 import '../../constants/theme_constants.dart';
+import '../../l10n/app_localizations.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -47,24 +48,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
-  void _showCreateUserDialog() {
+  void _showCreateUserDialog(AppLocalizations l10n) {
     final nameController = TextEditingController();
 
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('创建用户'),
+        title: Text(l10n.createUser),
         content: Padding(
           padding: const EdgeInsets.only(top: 16),
           child: CupertinoTextField(
             controller: nameController,
-            placeholder: '用户名',
+            placeholder: l10n.username,
             autofocus: true,
           ),
         ),
         actions: [
           CupertinoDialogAction(
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
             onPressed: () => Navigator.pop(ctx),
           ),
           CupertinoDialogAction(
@@ -72,17 +73,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               final name = nameController.text.trim();
               if (name.isNotEmpty) {
                 Navigator.pop(ctx);
-                await _createUser(name);
+                await _createUser(name, l10n);
               }
             },
-            child: const Text('创建'),
+            child: Text(l10n.create),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _createUser(String username) async {
+  Future<void> _createUser(String username, AppLocalizations l10n) async {
     try {
       await _userService.createUser(username);
       // 保存新用户到登录列表
@@ -93,11 +94,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('创建失败'),
+            title: Text(l10n.creationFailed),
             content: Text(e.toString()),
             actions: [
               CupertinoDialogAction(
-                child: const Text('确定'),
+                child: Text(l10n.ok),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -107,31 +108,31 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
-  void _showDeleteUserDialog(User user) {
+  void _showDeleteUserDialog(User user, AppLocalizations l10n) {
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: Text('删除用户 "${user.username}"？'),
-        content: const Text('该用户的素材将转移给admin'),
+        title: Text(l10n.deleteUserConfirm(user.username)),
+        content: Text(l10n.userMediaTransferToAdmin),
         actions: [
           CupertinoDialogAction(
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
             onPressed: () => Navigator.pop(ctx),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
             onPressed: () async {
               Navigator.pop(ctx);
-              await _deleteUser(user);
+              await _deleteUser(user, l10n);
             },
-            child: const Text('删除'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _deleteUser(User user) async {
+  Future<void> _deleteUser(User user, AppLocalizations l10n) async {
     try {
       await _userService.deleteUser(user.id);
       await _loadUsers();
@@ -140,11 +141,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         showCupertinoDialog(
           context: context,
           builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('删除失败'),
+            title: Text(l10n.deleteFailed),
             content: Text(e.toString()),
             actions: [
               CupertinoDialogAction(
-                child: const Text('确定'),
+                child: Text(l10n.ok),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ],
@@ -156,60 +157,66 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final isAdmin = authProvider.user?.role == 'admin';
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, child) {
+        final l10n = AppLocalizations(settingsProvider.locale);
+        final authProvider = context.watch<AuthProvider>();
+        final isAdmin = authProvider.user?.role == 'admin';
 
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('用户管理'),
-        trailing: isAdmin
-            ? CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: _showCreateUserDialog,
-                child: const Icon(CupertinoIcons.plus),
-              )
-            : null,
-      ),
-      child: SafeArea(
-        child: _isLoading
-            ? const Center(child: CupertinoActivityIndicator())
-            : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '加载失败',
-                          style: const TextStyle(
-                            color: CupertinoColors.systemRed,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        CupertinoButton.filled(
-                          onPressed: _loadUsers,
-                          child: const Text('重试'),
-                        ),
-                      ],
-                    ),
+        return CupertinoPageScaffold(
+          navigationBar: CupertinoNavigationBar(
+            middle: Text(l10n.userManagement),
+            trailing: isAdmin
+                ? CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => _showCreateUserDialog(l10n),
+                    child: const Icon(CupertinoIcons.plus),
                   )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(ThemeConstants.spacingMd),
-                    itemCount: _users.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: ThemeConstants.spacingSm),
-                    itemBuilder: (context, index) {
-                      final user = _users[index];
-                      final isCurrentUser = authProvider.user?.id == user.id;
-                      return _UserCard(
-                        user: user,
-                        isCurrentUser: isCurrentUser,
-                        canDelete: isAdmin && !isCurrentUser,
-                        onDelete: () => _showDeleteUserDialog(user),
-                      );
-                    },
-                  ),
-      ),
+                : null,
+          ),
+          child: SafeArea(
+            child: _isLoading
+                ? const Center(child: CupertinoActivityIndicator())
+                : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              l10n.failedToLoad,
+                              style: const TextStyle(
+                                color: CupertinoColors.systemRed,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            CupertinoButton.filled(
+                              onPressed: _loadUsers,
+                              child: Text(l10n.retry),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(ThemeConstants.spacingMd),
+                        itemCount: _users.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: ThemeConstants.spacingSm),
+                        itemBuilder: (context, index) {
+                          final user = _users[index];
+                          final isCurrentUser = authProvider.user?.id == user.id;
+                          return _UserCard(
+                            user: user,
+                            isCurrentUser: isCurrentUser,
+                            canDelete: isAdmin && !isCurrentUser,
+                            l10n: l10n,
+                            onDelete: () => _showDeleteUserDialog(user, l10n),
+                          );
+                        },
+                      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -218,12 +225,14 @@ class _UserCard extends StatelessWidget {
   final User user;
   final bool isCurrentUser;
   final bool canDelete;
+  final AppLocalizations l10n;
   final VoidCallback onDelete;
 
   const _UserCard({
     required this.user,
     required this.isCurrentUser,
     required this.canDelete,
+    required this.l10n,
     required this.onDelete,
   });
 
@@ -280,9 +289,9 @@ class _UserCard extends StatelessWidget {
                           color: CupertinoColors.systemGreen.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text(
-                          '当前',
-                          style: TextStyle(
+                        child: Text(
+                          l10n.current,
+                          style: const TextStyle(
                             fontSize: 10,
                             color: CupertinoColors.systemGreen,
                             fontWeight: FontWeight.w500,
@@ -294,7 +303,7 @@ class _UserCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  user.role == 'admin' ? '管理员' : '普通用户',
+                  user.role == 'admin' ? l10n.adminRole : l10n.userRole,
                   style: const TextStyle(
                     fontSize: 13,
                     color: CupertinoColors.secondaryLabel,
