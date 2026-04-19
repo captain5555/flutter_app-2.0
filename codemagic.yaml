@@ -29,8 +29,17 @@ workflows:
         script: |
           cd ios
           pod install
-      - name: Build iOS
+      - name: Build iOS (with git restore)
         script: |
+          # First build - allow Flutter to upgrade project (will probably fail)
+          flutter build ios --release --no-codesign || true
+          # Restore the original iOS project files that Flutter may have modified
+          git checkout HEAD -- ios/Runner.xcodeproj/project.pbxproj || true
+          git checkout HEAD -- ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme || true
+          git checkout HEAD -- ios/Flutter/Debug.xcconfig || true
+          git checkout HEAD -- ios/Flutter/Release.xcconfig || true
+          git checkout HEAD -- ios/Flutter/Generated.xcconfig || true
+          # Second build - with original project files
           flutter build ios --release --no-codesign
       - name: Create IPA
         script: |
